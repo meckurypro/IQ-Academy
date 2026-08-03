@@ -1,50 +1,83 @@
 // src/pages/Home.jsx
+import { useEffect, useState } from 'react'
+import { supabase } from '../lib/supabase'
 import Hero from '../components/Hero'
 import Programs from '../components/Programs'
 import NextTrainingTeaser from '../components/NextTrainingTeaser'
 import Testimonials from '../components/Testimonials'
 import EventHighlight from '../components/EventHighlight'
 
-// Placeholder data — will be replaced with live Supabase queries
-// (academy_trainings / academy_testimonials / academy_events) once
-// the staff dashboard is wired up.
-const nextTraining = {
-  title: 'AI Literacy for Community Leaders',
-  date: 'Coming soon',
-  location: 'Lagos, Nigeria',
-}
-
-const testimonials = [
-  {
-    id: 1,
-    quote: "I walked in confused about what AI even was for. I walked out having built my first automation.",
-    name: 'Cohort participant',
-    context: "St Anne's AI Training",
-  },
-  {
-    id: 2,
-    quote: 'Practical, not theoretical. Every session ended with something I could actually use.',
-    name: 'Cohort participant',
-    context: "St Anne's AI Training",
-  },
-]
-
-const recentEvent = {
-  title: "Church AI Training — St Anne's",
-  description:
-    "A hands-on AI literacy session for the St Anne's congregation — covering foundational AI understanding and practical, everyday applications. Part of PromptIQ's ongoing community workshop series.",
-  image: 'https://picsum.photos/seed/iq-academy-stannes/900/700',
-}
-
 export default function Home() {
+  const [nextTraining, setNextTraining] = useState(null)
+  const [testimonials, setTestimonials] = useState([])
+  const [recentEvent, setRecentEvent] = useState(null)
+
+  useEffect(() => {
+    let active = true
+
+    supabase
+      .from('academy_trainings')
+      .select('*')
+      .eq('status', 'upcoming')
+      .order('training_date', { ascending: true })
+      .limit(1)
+      .then(({ data, error }) => {
+        if (!active) return
+        if (error) { console.error('Failed to load next training:', error); return }
+        if (data && data[0]) {
+          setNextTraining({
+            title: data[0].title,
+            date: data[0].training_date
+              ? new Date(data[0].training_date).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })
+              : 'Date TBA',
+            location: data[0].location || 'Location TBA',
+          })
+        }
+      })
+
+    supabase
+      .from('academy_testimonials')
+      .select('*')
+      .eq('is_published', true)
+      .order('sort_order', { ascending: true })
+      .then(({ data, error }) => {
+        if (!active) return
+        if (error) { console.error('Failed to load testimonials:', error); return }
+        setTestimonials(
+          (data || []).map((t) => ({ id: t.id, quote: t.quote, name: t.name, context: t.context }))
+        )
+      })
+
+    supabase
+      .from('academy_trainings')
+      .select('*, academy_media(*)')
+      .eq('status', 'past')
+      .order('training_date', { ascending: false })
+      .limit(1)
+      .then(({ data, error }) => {
+        if (!active) return
+        if (error) { console.error('Failed to load recent event:', error); return }
+        const event = data && data[0]
+        if (event) {
+          const firstImage = (event.academy_media || []).find((m) => m.media_type === 'image')
+          setRecentEvent({
+            title: event.title,
+            description: event.description,
+            image: firstImage?.url || null,
+          })
+        }
+      })
+
+    return () => { active = false }
+  }, [])
+
   return (
     <>
       <Hero />
       <Programs />
-      <NextTrainingTeaser training={nextTraining} />
+      {nextTraining && <NextTrainingTeaser training={nextTraining} />}
       <Testimonials testimonials={testimonials} />
-      <EventHighlight event={recentEvent} />
+      {recentEvent?.image && <EventHighlight event={recentEvent} />}
     </>
   )
 }
-
