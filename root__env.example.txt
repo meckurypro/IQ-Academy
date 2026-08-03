@@ -1,0 +1,6 @@
+# .env.example
+# Same Supabase project as Meckury AI / promptiq-site.
+# Copy to .env for local dev; set in Vercel project settings for deploy.
+
+VITE_SUPABASE_URL=your-project-ref.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-public-key
