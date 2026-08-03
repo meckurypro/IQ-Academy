@@ -255,7 +255,7 @@ export default function StaffDashboard() {
               style={{
                 padding: '9px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, border: 'none',
                 background: tab === t.id ? 'var(--violet)' : 'var(--panel)',
-                color: tab === t.id ? 'var(--ink)' : 'var(--paper-dim)',
+                color: tab === t.id ? '#fff' : 'var(--paper-dim)',
               }}
             >
               {t.label}
@@ -270,4 +270,3 @@ export default function StaffDashboard() {
     </section>
   )
 }
-
