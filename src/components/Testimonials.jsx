@@ -1,5 +1,6 @@
 // src/components/Testimonials.jsx
 import { useEffect, useRef, useState } from 'react'
+import Reveal from './Reveal'
 
 const AUTOPLAY_MS = 5500
 
@@ -22,10 +23,10 @@ export default function Testimonials({ testimonials }) {
   return (
     <section id="testimonials">
       <div className="container">
-        <div className="section-head">
+        <Reveal className="section-head">
           <span className="eyebrow">From the cohort</span>
           <h2>What trainees say.</h2>
-        </div>
+        </Reveal>
         <div
           className="testimonial-track"
           onMouseEnter={() => (pausedRef.current = true)}
@@ -58,4 +59,3 @@ export default function Testimonials({ testimonials }) {
     </section>
   )
 }
-
