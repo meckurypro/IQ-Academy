@@ -1,4 +1,6 @@
 // src/components/Programs.jsx
+import Reveal from './Reveal'
+
 const INTERNSHIP_URL = 'https://prompt-iq-internship.vercel.app/'
 
 const programs = [
@@ -31,17 +33,17 @@ export default function Programs() {
   return (
     <section id="programs">
       <div className="container">
-        <div className="section-head">
+        <Reveal className="section-head">
           <span className="eyebrow">What we teach</span>
           <h2>Four ways to learn.</h2>
           <p>
             Whether you're a community, an individual, or a brand that just
             needs one clear answer — there's a format built for it.
           </p>
-        </div>
+        </Reveal>
         <div className="programs-grid">
-          {programs.map((p) => (
-            <div className="program-card" key={p.tag}>
+          {programs.map((p, i) => (
+            <Reveal as="div" className="program-card" key={p.tag} delay={i * 80}>
               <span className="program-tag">{p.tag}</span>
               <h3>{p.name}</h3>
               <p>{p.desc}</p>
@@ -55,7 +57,7 @@ export default function Programs() {
                   {p.linkLabel}
                 </a>
               )}
-            </div>
+            </Reveal>
           ))}
         </div>
       </div>
