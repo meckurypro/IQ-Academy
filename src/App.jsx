@@ -16,6 +16,8 @@ export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <div className="bg-glow-a" />
+        <div className="bg-glow-b" />
         <Navbar />
         <Routes>
           <Route path="/" element={<Home />} />
