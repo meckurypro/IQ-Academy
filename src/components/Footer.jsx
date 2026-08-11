@@ -9,6 +9,7 @@ export default function Footer() {
           <Link to="/programs" style={{ color: 'var(--text-dim)', fontSize: 13, fontWeight: 600 }}>Programs</Link>
           <Link to="/trainings" style={{ color: 'var(--text-dim)', fontSize: 13, fontWeight: 600 }}>Upcoming Trainings</Link>
           <Link to="/gallery" style={{ color: 'var(--text-dim)', fontSize: 13, fontWeight: 600 }}>Past Events</Link>
+          <Link to="/contact" style={{ color: 'var(--text-dim)', fontSize: 13, fontWeight: 600 }}>Contact Us</Link>
         </div>
         <span style={{ color: 'var(--muted)', fontSize: 13 }}>
          IQ Academy — Subsidiary of <a href="https://promptiq.com.ng" style={{ color: 'var(--violet-soft)' }}>PromptIQ</a>. © {new Date().getFullYear()}
