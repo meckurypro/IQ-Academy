@@ -36,7 +36,7 @@ export default function TrainingsPage() {
         {!loading && trainings.length === 0 && (
           <p style={{ color: 'var(--muted)' }}>
             Nothing scheduled right now — check back soon, or reach out on{' '}
-            <a href="https://promptiq.ng#contact" style={{ color: 'var(--violet-soft)' }}>promptiq.ng</a>{' '}
+            <a href="https://promptiq.com.ng#contact" style={{ color: 'var(--violet-soft)' }}>promptiq.com.ng</a>{' '}
             to ask about the next cohort.
           </p>
         )}
