@@ -1,18 +1,26 @@
 // src/components/Programs.jsx
+import { Link } from 'react-router-dom'
 import Reveal from './Reveal'
 
 const INTERNSHIP_URL = 'https://internship.promptiq.com.ng/'
+const WHATSAPP_URL = 'https://wa.me/2348162465247'
+const CONTACT_PATH = '/contact'
 
 const programs = [
   {
     tag: 'Cohorts',
     name: 'Community Workshops',
     desc: 'Cohort-based AI literacy for churches, schools, and workplace teams — practical skills, no jargon.',
+    to: CONTACT_PATH,
+    linkLabel: 'Get in touch →',
   },
   {
     tag: 'Mentorship',
     name: '1:1 Coaching',
     desc: 'One-on-one guidance for individuals building real AI skills at their own pace.',
+    href: WHATSAPP_URL,
+    linkLabel: 'Chat on WhatsApp →',
+    external: true,
   },
   {
     tag: 'Internships',
@@ -26,6 +34,8 @@ const programs = [
     tag: 'Consultations',
     name: 'Quick Clarity Calls',
     desc: "A focused one-hour call to demystify AI confusion for creators and brands.",
+    to: CONTACT_PATH,
+    linkLabel: 'Book a call →',
   },
 ]
 
@@ -47,6 +57,11 @@ export default function Programs() {
               <span className="program-tag">{p.tag}</span>
               <h3>{p.name}</h3>
               <p>{p.desc}</p>
+              {p.to && (
+                <Link className="program-link" to={p.to}>
+                  {p.linkLabel}
+                </Link>
+              )}
               {p.href && (
                 <a
                   className="program-link"
