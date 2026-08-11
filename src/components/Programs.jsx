@@ -1,7 +1,7 @@
 // src/components/Programs.jsx
 import Reveal from './Reveal'
 
-const INTERNSHIP_URL = 'https://prompt-iq-internship.vercel.app/'
+const INTERNSHIP_URL = 'https://internship.promptiq.com.ng/'
 
 const programs = [
   {
