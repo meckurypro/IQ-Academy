@@ -6,10 +6,6 @@ export default function Hero() {
     <header className="hero">
       <div className="container hero-grid">
         <div>
-          <div className="live-pill">
-            <span className="dot" />
-            Ongoing cohorts &amp; coaching — actively training now
-          </div>
           <h1>
             AI education, built <span className="accent">around how people actually learn.</span>
           </h1>
