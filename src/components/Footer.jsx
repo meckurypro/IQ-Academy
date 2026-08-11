@@ -11,7 +11,7 @@ export default function Footer() {
           <Link to="/gallery" style={{ color: 'var(--text-dim)', fontSize: 13, fontWeight: 600 }}>Past Events</Link>
         </div>
         <span style={{ color: 'var(--muted)', fontSize: 13 }}>
-          IQ Academy — part of <a href="https://promptiq.ng" style={{ color: 'var(--violet-soft)' }}>PromptIQ</a>. © {new Date().getFullYear()}
+         IQ Academy — Subsidiary of <a href="https://promptiq.com.ng" style={{ color: 'var(--violet-soft)' }}>PromptIQ</a>. © {new Date().getFullYear()}
         </span>
       </div>
     </footer>
