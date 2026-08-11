@@ -1,6 +1,10 @@
 // src/components/Hero.jsx
 import { LOGO_URL } from './Logo'
 
+// Hero-only image — decoupled from LOGO_URL so navbar/favicon stay untouched
+// when this changes.
+const HERO_IMAGE_URL = 'https://raw.githubusercontent.com/meckurypro/PromptIQ-/main/public/iqacademy.png'
+
 export default function Hero() {
   return (
     <header className="hero">
@@ -20,10 +24,9 @@ export default function Hero() {
             <a href="/programs" className="btn-outline">Explore programs</a>
           </div>
         </div>
-
         <div className="hero-visual">
           <div className="hero-visual-panel">
-            <img src={LOGO_URL} alt="IQ Academy" />
+            <img src={HERO_IMAGE_URL} alt="IQ Academy" />
           </div>
         </div>
       </div>
