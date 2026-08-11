@@ -9,6 +9,7 @@ import Home from './pages/Home'
 import ProgramsPage from './pages/ProgramsPage'
 import TrainingsPage from './pages/TrainingsPage'
 import GalleryPage from './pages/GalleryPage'
+import ContactPage from './pages/ContactPage'
 import StaffLogin from './pages/staff/StaffLogin'
 import StaffDashboard from './pages/staff/StaffDashboard'
 
@@ -24,6 +25,7 @@ export default function App() {
           <Route path="/programs" element={<ProgramsPage />} />
           <Route path="/trainings" element={<TrainingsPage />} />
           <Route path="/gallery" element={<GalleryPage />} />
+          <Route path="/contact" element={<ContactPage />} />
           <Route path="/staff" element={<StaffLogin />} />
           <Route
             path="/staff/dashboard"
