@@ -17,7 +17,7 @@ export default function Navbar() {
       <div className="nav-inner container">
         <Link to="/" className="nav-logo" onClick={() => setOpen(false)}>
           <Logo />
-          <span>IQ Academy</span>
+          <span>Academy</span>
         </Link>
 
         <nav className="nav-links">
@@ -27,7 +27,7 @@ export default function Navbar() {
         </nav>
 
         <div className="nav-right">
-          <Link to="/trainings" className="nav-cta">See what's next</Link>
+          <Link to="/contact" className="nav-cta">Contact Us</Link>
           <button
             className={`hamburger${open ? ' is-open' : ''}`}
             aria-label={open ? 'Close menu' : 'Open menu'}
@@ -44,6 +44,7 @@ export default function Navbar() {
           {LINKS.map((l) => (
             <NavLink key={l.to} to={l.to}>{l.label}</NavLink>
           ))}
+          <NavLink to="/contact">Contact Us</NavLink>
         </nav>
       </div>
     </div>
