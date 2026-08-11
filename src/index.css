@@ -92,7 +92,10 @@ button { font-family: inherit; cursor: pointer; }
   box-shadow: 0 0 8px var(--gold-glow);
 }
 
-.logo-mark { height: 34px; width: 34px; border-radius: 8px; object-fit: cover; }
+.logo-mark {
+  height: 36px; width: 36px; border-radius: 9px; object-fit: cover;
+  filter: drop-shadow(0 0 10px var(--gold-glow));
+}
 
 /* ---------- Nav ---------- */
 .nav {
@@ -107,9 +110,10 @@ button { font-family: inherit; cursor: pointer; }
 }
 .nav-logo { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 .nav-logo span {
-  font-family: var(--font-display); font-weight: 700; font-size: 17px; color: var(--text);
+  font-family: var(--font-display); font-weight: 800; font-size: 18px; color: var(--text);
+  letter-spacing: -0.2px;
 }
-.nav-links { display: flex; gap: 30px; font-size: 14px; color: var(--text-dim); }
+.nav-links { display: flex; gap: 30px; font-size: 14px; font-weight: 600; color: var(--text-dim); }
 .nav-links a { position: relative; padding-bottom: 4px; transition: color 0.2s; }
 .nav-links a::after {
   content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 2px;
@@ -123,7 +127,7 @@ button { font-family: inherit; cursor: pointer; }
 
 .nav-cta {
   position: relative; border: 1px solid var(--line-strong); color: var(--text);
-  padding: 9px 18px; border-radius: 999px; font-size: 13px; font-weight: 600;
+  padding: 9px 18px; border-radius: 999px; font-size: 13px; font-weight: 700;
   transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s, background 0.2s, color 0.2s;
   white-space: nowrap;
 }
