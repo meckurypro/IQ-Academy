@@ -1,0 +1,25 @@
+<!-- public/iq-logo.svg -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs>
+    <linearGradient id="iqBg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1c1a15"/>
+      <stop offset="100%" stop-color="#0a0a09"/>
+    </linearGradient>
+    <linearGradient id="iqGold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#e9c98a"/>
+      <stop offset="55%" stop-color="#cda15e"/>
+      <stop offset="100%" stop-color="#8a6a3a"/>
+    </linearGradient>
+  </defs>
+  <rect width="200" height="200" rx="44" fill="url(#iqBg)"/>
+  <rect x="3" y="3" width="194" height="194" rx="41" fill="none" stroke="url(#iqGold)" stroke-width="2" opacity="0.55"/>
+  <text
+    x="100" y="132"
+    text-anchor="middle"
+    font-family="'Helvetica Neue', Helvetica, Arial, sans-serif"
+    font-weight="800"
+    font-size="104"
+    letter-spacing="-5"
+    fill="url(#iqGold)"
+  >IQ</text>
+</svg>
