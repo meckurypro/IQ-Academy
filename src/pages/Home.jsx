@@ -6,6 +6,7 @@ import Programs from '../components/Programs'
 import NextTrainingTeaser from '../components/NextTrainingTeaser'
 import Testimonials from '../components/Testimonials'
 import EventHighlight from '../components/EventHighlight'
+import AffiliateCTA from '../components/AffiliateCTA'
 import ChatScreenshots from '../components/ChatScreenshots'
 
 export default function Home() {
@@ -94,6 +95,7 @@ export default function Home() {
       <Testimonials testimonials={testimonials} />
       <ChatScreenshots screenshots={chatScreenshots} />
       {recentEvent?.image && <EventHighlight event={recentEvent} />}
+      <AffiliateCTA />
     </>
   )
 }
