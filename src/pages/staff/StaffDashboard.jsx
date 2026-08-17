@@ -77,10 +77,14 @@ function EventsTab() {
   const dragItemIndex = useRef(null)
   const dragOverIndex = useRef(null)
 
+  // NOTE: academy_trainings has TWO relationships to academy_media now
+  // (academy_media.training_id -> academy_trainings.id, and
+  // academy_trainings.thumbnail_media_id -> academy_media.id), so the
+  // embed must name the FK explicitly or PostgREST throws PGRST201.
   const load = () => {
     supabase
       .from('academy_trainings')
-      .select('*, academy_media(*)')
+      .select('*, academy_media!academy_media_training_id_fkey(*)')
       .order('training_date', { ascending: false })
       .order('sort_order', { foreignTable: 'academy_media', ascending: true })
       .then(({ data, error }) => { if (error) console.error(error); setEvents(data || []) })
