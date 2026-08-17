@@ -53,13 +53,16 @@ export default function Home() {
       .select('*, academy_media(*)')
       .eq('status', 'past')
       .order('training_date', { ascending: false })
+      .order('sort_order', { foreignTable: 'academy_media', ascending: true })
       .limit(1)
       .then(({ data, error }) => {
         if (!active) return
         if (error) { console.error('Failed to load recent event:', error); return }
         const event = data && data[0]
         if (event) {
-          const firstImage = (event.academy_media || []).find((m) => m.media_type === 'image')
+          const media = event.academy_media || []
+          const thumb = media.find((m) => m.id === event.thumbnail_media_id)
+          const firstImage = thumb || media.find((m) => m.media_type === 'image')
           setRecentEvent({
             title: event.title,
             description: event.description,
