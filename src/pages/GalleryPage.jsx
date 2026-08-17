@@ -37,6 +37,7 @@ function MediaItem({ media }) {
           <video
             ref={videoRef}
             src={media.url}
+            poster={media.poster_url || undefined}
             preload="metadata"
             playsInline
             controls={playing}
