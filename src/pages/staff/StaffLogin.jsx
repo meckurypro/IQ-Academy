@@ -67,7 +67,7 @@ export default function StaffLogin() {
           </button>
         </form>
         <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 20 }}>
-          Same login as Meckury AI. No signup here — access is granted by staff role.
+         Staff access only — this login is restricted to Meckury AI team members.
         </p>
       </div>
     </section>
