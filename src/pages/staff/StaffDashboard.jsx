@@ -21,8 +21,12 @@ function Field({ label, children }) {
 
 // Uploads one or more files to the academy-media bucket and inserts a
 // matching row per file into academy_media, linked to trainingId.
-async function uploadMediaFiles(files, trainingId) {
-  for (const file of Array.from(files)) {
+// startOrder lets callers append after existing media instead of
+// stomping sort_order back to 0.
+async function uploadMediaFiles(files, trainingId, startOrder = 0) {
+  const fileArr = Array.from(files)
+  for (let i = 0; i < fileArr.length; i++) {
+    const file = fileArr[i]
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
     const path = `${trainingId}/${Date.now()}-${safeName}`
 
@@ -39,6 +43,7 @@ async function uploadMediaFiles(files, trainingId) {
       media_type: mediaType,
       url: urlData.publicUrl,
       caption: file.name,
+      sort_order: startOrder + i,
     }])
     if (insertError) throw insertError
   }
@@ -68,11 +73,16 @@ function EventsTab() {
   const newFileInputRef = useRef(null)
   const addMoreInputRefs = useRef({})
 
+  // drag-reorder tracking
+  const dragItemIndex = useRef(null)
+  const dragOverIndex = useRef(null)
+
   const load = () => {
     supabase
       .from('academy_trainings')
       .select('*, academy_media(*)')
       .order('training_date', { ascending: false })
+      .order('sort_order', { foreignTable: 'academy_media', ascending: true })
       .then(({ data, error }) => { if (error) console.error(error); setEvents(data || []) })
   }
   useEffect(load, [])
@@ -85,7 +95,7 @@ function EventsTab() {
 
     if (newFiles && newFiles.length > 0) {
       try {
-        await uploadMediaFiles(newFiles, data.id)
+        await uploadMediaFiles(newFiles, data.id, 0)
       } catch (err) {
         alert('Event saved, but media upload failed: ' + err.message)
       }
@@ -105,26 +115,70 @@ function EventsTab() {
     load()
   }
 
-  const handleAddMore = async (eventId, files) => {
+  const handleAddMore = async (ev, files) => {
     if (!files || files.length === 0) return
-    setUploadingFor(eventId)
+    setUploadingFor(ev.id)
     try {
-      await uploadMediaFiles(files, eventId)
+      const startOrder = (ev.academy_media || []).length
+      await uploadMediaFiles(files, ev.id, startOrder)
       load()
     } catch (err) {
       alert('Upload failed: ' + err.message)
     }
     setUploadingFor(null)
-    if (addMoreInputRefs.current[eventId]) addMoreInputRefs.current[eventId].value = ''
+    if (addMoreInputRefs.current[ev.id]) addMoreInputRefs.current[ev.id].value = ''
   }
 
-  const handleDeleteMedia = async (media) => {
+  const handleDeleteMedia = async (ev, media) => {
     if (!confirm('Delete this file?')) return
     try {
       await deleteMedia(media)
+      // if we just deleted the thumbnail, clear the reference
+      if (ev.thumbnail_media_id === media.id) {
+        await supabase.from('academy_trainings').update({ thumbnail_media_id: null }).eq('id', ev.id)
+      }
       load()
     } catch (err) {
       alert('Failed to delete: ' + err.message)
+    }
+  }
+
+  const handleSetThumbnail = async (ev, mediaId) => {
+    const nextId = ev.thumbnail_media_id === mediaId ? null : mediaId // click again to unset
+    const { error } = await supabase
+      .from('academy_trainings')
+      .update({ thumbnail_media_id: nextId })
+      .eq('id', ev.id)
+    if (error) { alert('Failed to set thumbnail: ' + error.message); return }
+    setEvents((prev) => prev.map((e) => (e.id === ev.id ? { ...e, thumbnail_media_id: nextId } : e)))
+  }
+
+  const handleDragStart = (index) => { dragItemIndex.current = index }
+  const handleDragEnter = (index) => { dragOverIndex.current = index }
+
+  const handleDragEnd = async (ev) => {
+    const from = dragItemIndex.current
+    const to = dragOverIndex.current
+    dragItemIndex.current = null
+    dragOverIndex.current = null
+    if (from === null || to === null || from === to) return
+
+    const media = [...(ev.academy_media || [])]
+    const [moved] = media.splice(from, 1)
+    media.splice(to, 0, moved)
+
+    // optimistic UI update
+    setEvents((prev) => prev.map((e) => (e.id === ev.id ? { ...e, academy_media: media } : e)))
+
+    try {
+      await Promise.all(
+        media.map((m, idx) =>
+          supabase.from('academy_media').update({ sort_order: idx }).eq('id', m.id)
+        )
+      )
+    } catch (err) {
+      alert('Failed to save new order: ' + err.message)
+      load() // fall back to server truth
     }
   }
 
@@ -200,30 +254,62 @@ function EventsTab() {
               {isOpen && (
                 <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--panel-line)' }}>
                   {media.length > 0 && (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: 10, marginBottom: 14 }}>
-                      {media.map((m) => (
-                        <div key={m.id} style={{ position: 'relative' }}>
-                          <div style={{ aspectRatio: '1', borderRadius: 6, overflow: 'hidden', border: '1px solid var(--panel-line)' }}>
-                            {m.media_type === 'video' ? (
-                              <video src={m.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            ) : (
-                              <img src={m.url} alt={m.caption || ''} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            )}
-                          </div>
-                          <button
-                            onClick={() => handleDeleteMedia(m)}
-                            style={{
-                              position: 'absolute', top: 4, right: 4, width: 20, height: 20, borderRadius: '50%',
-                              background: 'rgba(0,0,0,0.6)', color: '#fff', border: 'none', fontSize: 12, cursor: 'pointer',
-                              display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            }}
-                            aria-label="Delete file"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ))}
-                    </div>
+                    <>
+                      <p style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 8 }}>
+                        Drag to reorder · click ☆ to set the event thumbnail
+                      </p>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: 10, marginBottom: 14 }}>
+                        {media.map((m, idx) => {
+                          const isThumb = ev.thumbnail_media_id === m.id
+                          return (
+                            <div
+                              key={m.id}
+                              draggable
+                              onDragStart={() => handleDragStart(idx)}
+                              onDragEnter={() => handleDragEnter(idx)}
+                              onDragOver={(e) => e.preventDefault()}
+                              onDragEnd={() => handleDragEnd(ev)}
+                              style={{ position: 'relative', cursor: 'grab' }}
+                            >
+                              <div style={{
+                                aspectRatio: '1', borderRadius: 6, overflow: 'hidden',
+                                border: isThumb ? '2px solid var(--violet)' : '1px solid var(--panel-line)',
+                              }}>
+                                {m.media_type === 'video' ? (
+                                  <video src={m.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                ) : (
+                                  <img src={m.url} alt={m.caption || ''} style={{ width: '100%', height: '100%', objectFit: 'cover' }} draggable={false} />
+                                )}
+                              </div>
+                              <button
+                                onClick={() => handleDeleteMedia(ev, m)}
+                                style={{
+                                  position: 'absolute', top: 4, right: 4, width: 20, height: 20, borderRadius: '50%',
+                                  background: 'rgba(0,0,0,0.6)', color: '#fff', border: 'none', fontSize: 12, cursor: 'pointer',
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                }}
+                                aria-label="Delete file"
+                              >
+                                ×
+                              </button>
+                              <button
+                                onClick={() => handleSetThumbnail(ev, m.id)}
+                                title={isThumb ? 'Unset thumbnail' : 'Set as thumbnail'}
+                                style={{
+                                  position: 'absolute', bottom: 4, left: 4, width: 22, height: 22, borderRadius: '50%',
+                                  background: 'rgba(0,0,0,0.6)', color: isThumb ? 'var(--violet-soft)' : '#fff',
+                                  border: 'none', fontSize: 13, cursor: 'pointer',
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                }}
+                                aria-label="Set as thumbnail"
+                              >
+                                {isThumb ? '★' : '☆'}
+                              </button>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </>
                   )}
                   <label style={labelStyle}>Add more photos / videos</label>
                   <input
@@ -232,7 +318,7 @@ function EventsTab() {
                     accept="image/*,video/*"
                     multiple
                     disabled={uploadingFor === ev.id}
-                    onChange={(e) => handleAddMore(ev.id, e.target.files)}
+                    onChange={(e) => handleAddMore(ev, e.target.files)}
                     style={{ fontSize: 13, color: 'var(--paper-dim)' }}
                   />
                   {uploadingFor === ev.id && <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>Uploading…</p>}
