@@ -6,15 +6,16 @@ import Programs from '../components/Programs'
 import NextTrainingTeaser from '../components/NextTrainingTeaser'
 import Testimonials from '../components/Testimonials'
 import EventHighlight from '../components/EventHighlight'
+import ChatScreenshots from '../components/ChatScreenshots'
 
 export default function Home() {
   const [nextTraining, setNextTraining] = useState(null)
   const [testimonials, setTestimonials] = useState([])
   const [recentEvent, setRecentEvent] = useState(null)
+  const [chatScreenshots, setChatScreenshots] = useState([])
 
   useEffect(() => {
     let active = true
-
     supabase
       .from('academy_trainings')
       .select('*')
@@ -34,7 +35,6 @@ export default function Home() {
           })
         }
       })
-
     supabase
       .from('academy_testimonials')
       .select('*')
@@ -47,7 +47,6 @@ export default function Home() {
           (data || []).map((t) => ({ id: t.id, quote: t.quote, name: t.name, context: t.context }))
         )
       })
-
     // NOTE: academy_trainings has TWO relationships to academy_media
     // (academy_media.training_id -> academy_trainings.id, and
     // academy_trainings.thumbnail_media_id -> academy_media.id), so the
@@ -74,7 +73,16 @@ export default function Home() {
           })
         }
       })
-
+    supabase
+      .from('academy_chat_screenshots')
+      .select('*')
+      .eq('is_published', true)
+      .order('sort_order', { ascending: true })
+      .then(({ data, error }) => {
+        if (!active) return
+        if (error) { console.error('Failed to load chat screenshots:', error); return }
+        setChatScreenshots(data || [])
+      })
     return () => { active = false }
   }, [])
 
@@ -84,6 +92,7 @@ export default function Home() {
       <Programs />
       {nextTraining && <NextTrainingTeaser training={nextTraining} />}
       <Testimonials testimonials={testimonials} />
+      <ChatScreenshots screenshots={chatScreenshots} />
       {recentEvent?.image && <EventHighlight event={recentEvent} />}
     </>
   )
