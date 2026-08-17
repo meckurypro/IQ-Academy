@@ -8,11 +8,12 @@ export default function GalleryPage() {
 
   useEffect(() => {
     let active = true
-    supabase
+   supabase
       .from('academy_trainings')
       .select('*, academy_media(*)')
       .eq('status', 'past')
       .order('training_date', { ascending: false })
+      .order('sort_order', { foreignTable: 'academy_media', ascending: true })
       .then(({ data, error }) => {
         if (!active) return
         if (error) console.error('Failed to load past events:', error)
