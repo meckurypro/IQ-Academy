@@ -1,6 +1,128 @@
 // src/pages/GalleryPage.jsx
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
+
+// ── Single media item inside the carousel ──────────────────────
+// Images render directly. Videos render paused (showing their first
+// frame) with a play button overlay; tapping it reveals native
+// controls and starts playback.
+function MediaItem({ media }) {
+  const videoRef = useRef(null)
+  const [playing, setPlaying] = useState(false)
+
+  const handlePlay = () => {
+    setPlaying(true)
+    // wait a tick for the controls to mount, then start playback
+    requestAnimationFrame(() => {
+      videoRef.current?.play().catch(() => {})
+    })
+  }
+
+  return (
+    <div
+      style={{
+        position: 'relative',
+        flex: '0 0 82%',
+        maxWidth: 420,
+        scrollSnapAlign: 'start',
+        borderRadius: 12,
+        overflow: 'hidden',
+        border: '1px solid var(--panel-line)',
+        aspectRatio: '4/3',
+        background: '#000',
+      }}
+    >
+      {media.media_type === 'video' ? (
+        <>
+          <video
+            ref={videoRef}
+            src={media.url}
+            preload="metadata"
+            playsInline
+            controls={playing}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+          />
+          {!playing && (
+            <button
+              onClick={handlePlay}
+              aria-label="Play video"
+              style={{
+                position: 'absolute', inset: 0, width: '100%', height: '100%',
+                background: 'rgba(0,0,0,0.15)', border: 'none', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}
+            >
+              <span style={{
+                width: 56, height: 56, borderRadius: '50%',
+                background: 'rgba(0,0,0,0.55)', border: '2px solid rgba(255,255,255,0.85)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <svg width="20" height="22" viewBox="0 0 20 22" fill="none">
+                  <path d="M2 2.5C2 1.06 3.57 0.17 4.82 0.9L18.4 8.9C19.62 9.62 19.62 11.38 18.4 12.1L4.82 20.1C3.57 20.83 2 19.94 2 18.5V2.5Z" fill="white" />
+                </svg>
+              </span>
+            </button>
+          )}
+        </>
+      ) : (
+        <img
+          src={media.url}
+          alt={media.caption || ''}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+        />
+      )}
+    </div>
+  )
+}
+
+// ── One event: header + swipeable media carousel ────────────────
+function EventCard({ event }) {
+  const allMedia = event.academy_media || []
+  const thumb = allMedia.find((m) => m.id === event.thumbnail_media_id)
+  // thumbnail (if set) leads the carousel; the rest follow in sort_order
+  const orderedMedia = thumb
+    ? [thumb, ...allMedia.filter((m) => m.id !== thumb.id)]
+    : allMedia
+
+  return (
+    <div style={{ marginBottom: 56 }}>
+      <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 22, marginBottom: 6 }}>{event.title}</h3>
+      <p style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 18 }}>
+        {event.training_date ? new Date(event.training_date).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}
+        {event.location ? ` · ${event.location}` : ''}
+      </p>
+      {event.description && (
+        <p style={{ color: 'var(--paper-dim)', fontSize: 15, lineHeight: 1.65, marginBottom: 18, maxWidth: 620 }}>
+          {event.description}
+        </p>
+      )}
+
+      {orderedMedia.length > 0 && (
+        <div
+          style={{
+            display: 'flex',
+            gap: 12,
+            overflowX: 'auto',
+            scrollSnapType: 'x mandatory',
+            paddingBottom: 6,
+            // hide scrollbar while keeping native touch/swipe + drag scroll
+            scrollbarWidth: 'none',
+            WebkitOverflowScrolling: 'touch',
+          }}
+        >
+          {orderedMedia.map((m) => (
+            <MediaItem key={m.id} media={m} />
+          ))}
+        </div>
+      )}
+      {orderedMedia.length > 1 && (
+        <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 8 }}>
+          Swipe to see more · {orderedMedia.length} files
+        </p>
+      )}
+    </div>
+  )
+}
 
 export default function GalleryPage() {
   const [events, setEvents] = useState([])
@@ -42,29 +164,7 @@ export default function GalleryPage() {
           <p style={{ color: 'var(--muted)' }}>Nothing posted yet — check back soon.</p>
         )}
         {events.map((event) => (
-          <div key={event.id} style={{ marginBottom: 56 }}>
-            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 22, marginBottom: 6 }}>{event.title}</h3>
-            <p style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 18 }}>
-              {event.training_date ? new Date(event.training_date).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}
-              {event.location ? ` · ${event.location}` : ''}
-            </p>
-            {event.description && (
-              <p style={{ color: 'var(--paper-dim)', fontSize: 15, lineHeight: 1.65, marginBottom: 18, maxWidth: 620 }}>
-                {event.description}
-              </p>
-            )}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
-              {(event.academy_media || []).map((m) => (
-                <div key={m.id} style={{ borderRadius: 10, overflow: 'hidden', border: '1px solid var(--panel-line)', aspectRatio: '4/3' }}>
-                  {m.media_type === 'video' ? (
-                    <video src={m.url} controls style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  ) : (
-                    <img src={m.url} alt={m.caption || event.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
+          <EventCard key={event.id} event={event} />
         ))}
       </div>
     </section>
