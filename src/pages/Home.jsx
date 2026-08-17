@@ -48,9 +48,13 @@ export default function Home() {
         )
       })
 
+    // NOTE: academy_trainings has TWO relationships to academy_media
+    // (academy_media.training_id -> academy_trainings.id, and
+    // academy_trainings.thumbnail_media_id -> academy_media.id), so the
+    // embed must name the FK explicitly or PostgREST throws PGRST201.
     supabase
       .from('academy_trainings')
-      .select('*, academy_media(*)')
+      .select('*, academy_media!academy_media_training_id_fkey(*)')
       .eq('status', 'past')
       .order('training_date', { ascending: false })
       .order('sort_order', { foreignTable: 'academy_media', ascending: true })
