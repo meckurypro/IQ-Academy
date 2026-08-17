@@ -19,10 +19,52 @@ function Field({ label, children }) {
   )
 }
 
+// Captures a single frame from a video File as a JPEG Blob, used as a
+// stable poster image so we don't depend on the browser's own
+// (inconsistent) default first-frame rendering. Best-effort: resolves
+// null instead of throwing if capture isn't possible in this browser.
+function captureVideoPosterBlob(file, seekSeconds = 0.5) {
+  return new Promise((resolve) => {
+    const objectUrl = URL.createObjectURL(file)
+    const video = document.createElement('video')
+    video.muted = true
+    video.playsInline = true
+    video.preload = 'auto'
+    video.src = objectUrl
+
+    const cleanup = () => URL.revokeObjectURL(objectUrl)
+    const fail = () => { cleanup(); resolve(null) }
+
+    video.addEventListener('loadedmetadata', () => {
+      const duration = Number.isFinite(video.duration) ? video.duration : seekSeconds
+      video.currentTime = Math.min(seekSeconds, Math.max(0, duration - 0.05))
+    })
+
+    video.addEventListener('seeked', () => {
+      try {
+        const canvas = document.createElement('canvas')
+        canvas.width = video.videoWidth
+        canvas.height = video.videoHeight
+        const ctx = canvas.getContext('2d')
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+        canvas.toBlob((blob) => { cleanup(); resolve(blob) }, 'image/jpeg', 0.85)
+      } catch {
+        fail()
+      }
+    })
+
+    video.addEventListener('error', fail)
+    // safety timeout in case a video never fires seeked (corrupt/unsupported file)
+    setTimeout(fail, 8000)
+  })
+}
+
 // Uploads one or more files to the academy-media bucket and inserts a
 // matching row per file into academy_media, linked to trainingId.
 // startOrder lets callers append after existing media instead of
-// stomping sort_order back to 0.
+// stomping sort_order back to 0. For videos, also captures and
+// uploads a poster frame so playback UIs don't rely on browser
+// default first-frame rendering.
 async function uploadMediaFiles(files, trainingId, startOrder = 0) {
   const fileArr = Array.from(files)
   for (let i = 0; i < fileArr.length; i++) {
@@ -38,27 +80,56 @@ async function uploadMediaFiles(files, trainingId, startOrder = 0) {
     const { data: urlData } = supabase.storage.from('academy-media').getPublicUrl(path)
     const mediaType = file.type.startsWith('video') ? 'video' : 'image'
 
+    let posterUrl = null
+    if (mediaType === 'video') {
+      try {
+        const posterBlob = await captureVideoPosterBlob(file)
+        if (posterBlob) {
+          const posterPath = `${trainingId}/${Date.now()}-${safeName}-poster.jpg`
+          const { error: posterUploadError } = await supabase.storage
+            .from('academy-media')
+            .upload(posterPath, posterBlob, { contentType: 'image/jpeg' })
+          if (!posterUploadError) {
+            const { data: posterUrlData } = supabase.storage.from('academy-media').getPublicUrl(posterPath)
+            posterUrl = posterUrlData.publicUrl
+          }
+        }
+      } catch {
+        // poster capture is best-effort; fall back to no poster_url
+      }
+    }
+
     const { error: insertError } = await supabase.from('academy_media').insert([{
       training_id: trainingId,
       media_type: mediaType,
       url: urlData.publicUrl,
       caption: file.name,
       sort_order: startOrder + i,
+      poster_url: posterUrl,
     }])
     if (insertError) throw insertError
   }
 }
 
-// Deletes a media row and its underlying file in storage.
+// Deletes a media row and its underlying file(s) in storage,
+// including the poster image if one was generated.
 async function deleteMedia(media) {
   const { error: dbError } = await supabase.from('academy_media').delete().eq('id', media.id)
   if (dbError) throw dbError
 
   const marker = '/academy-media/'
-  const idx = media.url.indexOf(marker)
-  if (idx !== -1) {
-    const path = media.url.slice(idx + marker.length)
-    await supabase.storage.from('academy-media').remove([path])
+  const pathsToRemove = []
+
+  const urlIdx = media.url.indexOf(marker)
+  if (urlIdx !== -1) pathsToRemove.push(media.url.slice(urlIdx + marker.length))
+
+  if (media.poster_url) {
+    const posterIdx = media.poster_url.indexOf(marker)
+    if (posterIdx !== -1) pathsToRemove.push(media.poster_url.slice(posterIdx + marker.length))
+  }
+
+  if (pathsToRemove.length > 0) {
+    await supabase.storage.from('academy-media').remove(pathsToRemove)
   }
 }
 
@@ -280,7 +351,11 @@ function EventsTab() {
                                 border: isThumb ? '2px solid var(--violet)' : '1px solid var(--panel-line)',
                               }}>
                                 {m.media_type === 'video' ? (
-                                  <video src={m.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                  m.poster_url ? (
+                                    <img src={m.poster_url} alt={m.caption || ''} style={{ width: '100%', height: '100%', objectFit: 'cover' }} draggable={false} />
+                                  ) : (
+                                    <video src={m.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                  )
                                 ) : (
                                   <img src={m.url} alt={m.caption || ''} style={{ width: '100%', height: '100%', objectFit: 'cover' }} draggable={false} />
                                 )}
