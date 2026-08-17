@@ -33,7 +33,7 @@ const programs = [
   {
     tag: 'Consultations',
     name: 'Quick Clarity Calls',
-    desc: "A focused one-hour call to demystify AI confusion for creators and brands.",
+    desc: "A focused call to demystify AI confusion for creators and brands.",
     to: CONTACT_PATH,
     linkLabel: 'Book a call →',
   },
