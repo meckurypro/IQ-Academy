@@ -707,6 +707,130 @@ function ScreenshotsTab() {
   )
 }
 
+// ── Inquiries tab ────────────────────────────────────────────
+// Reads from promptiq_inquiries — the same table the public Contact
+// page writes to (service_interest is hardcoded to 'academy' there).
+// Staff can see each submission, jump straight to email/phone, and
+// move it through new -> contacted -> closed.
+const INQUIRY_STATUSES = ['new', 'contacted', 'closed']
+
+const STATUS_COLORS = {
+  new: '#ffb454',
+  contacted: '#6fb8ff',
+  closed: '#7a8a7a',
+}
+
+function InquiriesTab() {
+  const [rows, setRows] = useState([])
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [loading, setLoading] = useState(true)
+
+  const load = () => {
+    setLoading(true)
+    supabase
+      .from('promptiq_inquiries')
+      .select('*')
+      .eq('service_interest', 'academy')
+      .order('created_at', { ascending: false })
+      .then(({ data, error }) => {
+        if (error) console.error(error)
+        setRows(data || [])
+        setLoading(false)
+      })
+  }
+  useEffect(load, [])
+
+  const handleStatusChange = async (row, status) => {
+    const { error } = await supabase.from('promptiq_inquiries').update({ status }).eq('id', row.id)
+    if (error) { alert('Failed to update status: ' + error.message); return }
+    setRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, status } : r)))
+  }
+
+  const handleDelete = async (id) => {
+    if (!confirm('Delete this inquiry?')) return
+    const { error } = await supabase.from('promptiq_inquiries').delete().eq('id', id)
+    if (error) { alert('Failed to delete: ' + error.message); return }
+    load()
+  }
+
+  const visibleRows = statusFilter === 'all' ? rows : rows.filter((r) => r.status === statusFilter)
+  const counts = rows.reduce((acc, r) => { acc[r.status] = (acc[r.status] || 0) + 1; return acc }, {})
+
+  return (
+    <div>
+      <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 16, marginBottom: 14 }}>Contact form inquiries</h3>
+      <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 16, maxWidth: 560 }}>
+        Submissions from the Academy contact page.
+      </p>
+
+      <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
+        {['all', ...INQUIRY_STATUSES].map((s) => (
+          <button
+            key={s}
+            onClick={() => setStatusFilter(s)}
+            style={{
+              padding: '7px 14px', borderRadius: 20, fontSize: 12, fontWeight: 600, border: '1px solid var(--panel-line)',
+              background: statusFilter === s ? 'var(--violet)' : 'var(--panel)',
+              color: statusFilter === s ? '#fff' : 'var(--paper-dim)',
+              cursor: 'pointer', textTransform: 'capitalize',
+            }}
+          >
+            {s} {s !== 'all' && counts[s] ? `(${counts[s]})` : ''}
+          </button>
+        ))}
+      </div>
+
+      {loading && <p style={{ color: 'var(--muted)', fontSize: 13 }}>Loading…</p>}
+      {!loading && visibleRows.length === 0 && <p style={{ color: 'var(--muted)', fontSize: 13 }}>No inquiries here.</p>}
+
+      <div style={{ display: 'grid', gap: 10 }}>
+        {visibleRows.map((r) => (
+          <div key={r.id} style={cardStyle}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: 220 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                  <strong style={{ fontSize: 14 }}>{r.name}</strong>
+                  <span style={{
+                    fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, textTransform: 'uppercase',
+                    color: '#111', background: STATUS_COLORS[r.status] || '#999',
+                  }}>
+                    {r.status}
+                  </span>
+                </div>
+                <p style={{ fontSize: 12, color: 'var(--muted)', margin: '0 0 8px' }}>
+                  {r.inquiry_type.replace('_', ' ')} · {new Date(r.created_at).toLocaleString('en-NG', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                </p>
+                <p style={{ fontSize: 13, color: 'var(--paper-dim)', lineHeight: 1.5, marginBottom: 8, whiteSpace: 'pre-wrap' }}>
+                  {r.message}
+                </p>
+                <div style={{ display: 'flex', gap: 14, fontSize: 12 }}>
+                  <a href={`mailto:${r.email}`} style={{ color: 'var(--violet-soft)' }}>{r.email}</a>
+                  <a href={`tel:${r.phone}`} style={{ color: 'var(--violet-soft)' }}>{r.phone}</a>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end', flexShrink: 0 }}>
+                <select
+                  value={r.status}
+                  onChange={(e) => handleStatusChange(r, e.target.value)}
+                  style={{ ...inputStyle, width: 'auto', fontSize: 12, padding: '6px 10px' }}
+                >
+                  {INQUIRY_STATUSES.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+                <button onClick={() => handleDelete(r.id)} style={{ background: 'none', border: 'none', color: '#ff8888', fontSize: 12, cursor: 'pointer' }}>
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ── Dashboard shell ──────────────────────────────────────────
 export default function StaffDashboard() {
   const { profile, signOut } = useAuth()
@@ -733,6 +857,7 @@ export default function StaffDashboard() {
             { id: 'events', label: 'Events' },
             { id: 'testimonials', label: 'Testimonials' },
             { id: 'screenshots', label: 'Chat Screenshots' },
+            { id: 'inquiries', label: 'Inquiries' },
           ].map((t) => (
             <button
               key={t.id}
@@ -751,6 +876,7 @@ export default function StaffDashboard() {
         {tab === 'events' && <EventsTab />}
         {tab === 'testimonials' && <TestimonialsTab />}
         {tab === 'screenshots' && <ScreenshotsTab />}
+        {tab === 'inquiries' && <InquiriesTab />}
       </div>
     </section>
   )
