@@ -133,6 +133,14 @@ async function deleteMedia(media) {
   }
 }
 
+// Strips a storage path out of a public URL for the given bucket, so
+// callers can pass it to supabase.storage.from(bucket).remove([...]).
+function storagePathFromUrl(url, bucket) {
+  const marker = `/${bucket}/`
+  const idx = url.indexOf(marker)
+  return idx === -1 ? null : url.slice(idx + marker.length)
+}
+
 // ── Events tab (create + manage trainings, with inline media) ─────
 function EventsTab() {
   const [events, setEvents] = useState([])
@@ -412,24 +420,59 @@ function EventsTab() {
 }
 
 // ── Testimonials tab ────────────────────────────────────────
+// Testimonials can optionally be linked to a cohort/training via a
+// dropdown of existing trainings (past or upcoming). Picking one
+// auto-fills the "context" field with the training's title, but the
+// staff member can still edit context freely afterward.
 function TestimonialsTab() {
   const [rows, setRows] = useState([])
-  const [form, setForm] = useState({ name: '', context: '', quote: '', is_published: true })
+  const [trainings, setTrainings] = useState([])
+  const [form, setForm] = useState({ name: '', context: '', quote: '', is_published: true, training_id: '' })
   const [saving, setSaving] = useState(false)
 
   const load = () => {
-    supabase.from('academy_testimonials').select('*').order('created_at', { ascending: false })
+    supabase
+      .from('academy_testimonials')
+      .select('*, academy_trainings(title)')
+      .order('created_at', { ascending: false })
       .then(({ data, error }) => { if (error) console.error(error); setRows(data || []) })
   }
-  useEffect(load, [])
+
+  const loadTrainings = () => {
+    supabase
+      .from('academy_trainings')
+      .select('id, title, status, training_date')
+      .order('training_date', { ascending: false })
+      .then(({ data, error }) => { if (error) console.error(error); setTrainings(data || []) })
+  }
+
+  useEffect(() => { load(); loadTrainings() }, [])
+
+  const handleCohortChange = (trainingId) => {
+    const picked = trainings.find((t) => t.id === trainingId)
+    setForm((p) => ({
+      ...p,
+      training_id: trainingId,
+      // only auto-fill context if it's empty or was previously auto-filled
+      // from a cohort pick — don't clobber something the staff typed by hand
+      context: picked ? picked.title : p.context,
+    }))
+  }
 
   const handleCreate = async (e) => {
     e.preventDefault()
     setSaving(true)
-    const { error } = await supabase.from('academy_testimonials').insert([form])
+    const payload = {
+      name: form.name,
+      context: form.context || null,
+      quote: form.quote,
+      is_published: form.is_published,
+      training_id: form.training_id || null,
+    }
+    const { error } = await supabase.from('academy_testimonials').insert([payload])
     setSaving(false)
     if (error) { alert('Failed to save: ' + error.message); return }
-    setForm({ name: '', context: '', quote: '', is_published: true })
+    setForm({ name: '', context: '', quote: '', is_published: true, training_id: '' })
     load()
   }
 
@@ -445,8 +488,20 @@ function TestimonialsTab() {
       <form onSubmit={handleCreate} style={{ display: 'grid', gap: 12, marginBottom: 32, maxWidth: 520 }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <Field label="Name"><input style={inputStyle} required value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} /></Field>
-          <Field label="Context (e.g. cohort name)"><input style={inputStyle} value={form.context} onChange={(e) => setForm((p) => ({ ...p, context: e.target.value }))} /></Field>
+          <Field label="Cohort (optional)">
+            <select style={inputStyle} value={form.training_id} onChange={(e) => handleCohortChange(e.target.value)}>
+              <option value="">— No cohort —</option>
+              {trainings.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.title}{t.training_date ? ` (${t.training_date})` : ''} · {t.status}
+                </option>
+              ))}
+            </select>
+          </Field>
         </div>
+        <Field label="Context (auto-filled from cohort, editable)">
+          <input style={inputStyle} value={form.context} onChange={(e) => setForm((p) => ({ ...p, context: e.target.value }))} />
+        </Field>
         <Field label="Quote"><textarea style={{ ...inputStyle, minHeight: 70 }} required value={form.quote} onChange={(e) => setForm((p) => ({ ...p, quote: e.target.value }))} /></Field>
         <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--paper-dim)' }}>
           <input type="checkbox" checked={form.is_published} onChange={(e) => setForm((p) => ({ ...p, is_published: e.target.checked }))} />
@@ -460,12 +515,194 @@ function TestimonialsTab() {
           <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px', background: 'var(--panel)', border: '1px solid var(--panel-line)', borderRadius: 8 }}>
             <div>
               <strong style={{ fontSize: 14 }}>{r.name}</strong>
-              <p style={{ fontSize: 12, color: 'var(--muted)', margin: '2px 0 0' }}>{r.is_published ? 'Published' : 'Hidden'} · {r.quote.slice(0, 60)}{r.quote.length > 60 ? '…' : ''}</p>
+              <p style={{ fontSize: 12, color: 'var(--muted)', margin: '2px 0 0' }}>
+                {r.is_published ? 'Published' : 'Hidden'}
+                {r.academy_trainings?.title ? ` · ${r.academy_trainings.title}` : ''} · {r.quote.slice(0, 60)}{r.quote.length > 60 ? '…' : ''}
+              </p>
             </div>
             <button onClick={() => handleDelete(r.id)} style={{ background: 'none', border: 'none', color: '#ff8888', fontSize: 13, cursor: 'pointer' }}>Delete</button>
           </div>
         ))}
       </div>
+    </div>
+  )
+}
+
+// ── Chat Screenshots tab ─────────────────────────────────────
+// WhatsApp screenshots stored in the existing academy-media bucket
+// under a chat-feedback/ folder. Simpler than the Events media
+// manager: no per-training scoping, just a flat published/unpublished
+// list with drag-reorder, an inline caption, and a publish toggle.
+function ScreenshotsTab() {
+  const [rows, setRows] = useState([])
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef(null)
+
+  const dragItemIndex = useRef(null)
+  const dragOverIndex = useRef(null)
+
+  const load = () => {
+    supabase
+      .from('academy_chat_screenshots')
+      .select('*')
+      .order('sort_order', { ascending: true })
+      .then(({ data, error }) => { if (error) console.error(error); setRows(data || []) })
+  }
+  useEffect(load, [])
+
+  const handleUpload = async (files) => {
+    if (!files || files.length === 0) return
+    setUploading(true)
+    try {
+      const fileArr = Array.from(files)
+      const startOrder = rows.length
+      for (let i = 0; i < fileArr.length; i++) {
+        const file = fileArr[i]
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+        const path = `chat-feedback/${Date.now()}-${safeName}`
+
+        const { error: uploadError } = await supabase.storage.from('academy-media').upload(path, file)
+        if (uploadError) throw uploadError
+
+        const { data: urlData } = supabase.storage.from('academy-media').getPublicUrl(path)
+
+        const { error: insertError } = await supabase.from('academy_chat_screenshots').insert([{
+          image_url: urlData.publicUrl,
+          caption: null,
+          is_published: true,
+          sort_order: startOrder + i,
+        }])
+        if (insertError) throw insertError
+      }
+      load()
+    } catch (err) {
+      alert('Upload failed: ' + err.message)
+    }
+    setUploading(false)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  const handleDelete = async (row) => {
+    if (!confirm('Delete this screenshot?')) return
+    try {
+      const { error: dbError } = await supabase.from('academy_chat_screenshots').delete().eq('id', row.id)
+      if (dbError) throw dbError
+      const path = storagePathFromUrl(row.image_url, 'academy-media')
+      if (path) await supabase.storage.from('academy-media').remove([path])
+      load()
+    } catch (err) {
+      alert('Failed to delete: ' + err.message)
+    }
+  }
+
+  const handleTogglePublish = async (row) => {
+    const { error } = await supabase
+      .from('academy_chat_screenshots')
+      .update({ is_published: !row.is_published })
+      .eq('id', row.id)
+    if (error) { alert('Failed to update: ' + error.message); return }
+    setRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, is_published: !r.is_published } : r)))
+  }
+
+  const handleCaptionBlur = async (row, value) => {
+    if (value === (row.caption || '')) return
+    const { error } = await supabase
+      .from('academy_chat_screenshots')
+      .update({ caption: value || null })
+      .eq('id', row.id)
+    if (error) alert('Failed to save caption: ' + error.message)
+  }
+
+  const handleDragStart = (index) => { dragItemIndex.current = index }
+  const handleDragEnter = (index) => { dragOverIndex.current = index }
+
+  const handleDragEnd = async () => {
+    const from = dragItemIndex.current
+    const to = dragOverIndex.current
+    dragItemIndex.current = null
+    dragOverIndex.current = null
+    if (from === null || to === null || from === to) return
+
+    const next = [...rows]
+    const [moved] = next.splice(from, 1)
+    next.splice(to, 0, moved)
+    setRows(next)
+
+    try {
+      await Promise.all(next.map((r, idx) => supabase.from('academy_chat_screenshots').update({ sort_order: idx }).eq('id', r.id)))
+    } catch (err) {
+      alert('Failed to save new order: ' + err.message)
+      load()
+    }
+  }
+
+  return (
+    <div>
+      <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 16, marginBottom: 14 }}>Community chat feedback</h3>
+      <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 16, maxWidth: 560 }}>
+        WhatsApp screenshots from the community. Crop or blur any phone numbers
+        and profile photos before uploading — those are real people's private
+        contact info.
+      </p>
+      <Field label="Upload screenshots">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          disabled={uploading}
+          onChange={(e) => handleUpload(e.target.files)}
+          style={{ fontSize: 13, color: 'var(--paper-dim)' }}
+        />
+      </Field>
+      {uploading && <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 8 }}>Uploading…</p>}
+
+      {rows.length > 0 && (
+        <>
+          <p style={{ fontSize: 11, color: 'var(--muted)', margin: '24px 0 8px' }}>
+            Drag to reorder · toggle to publish/hide · caption is optional
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 14 }}>
+            {rows.map((r, idx) => (
+              <div
+                key={r.id}
+                draggable
+                onDragStart={() => handleDragStart(idx)}
+                onDragEnter={() => handleDragEnter(idx)}
+                onDragOver={(e) => e.preventDefault()}
+                onDragEnd={handleDragEnd}
+                style={{ ...cardStyle, padding: 10, cursor: 'grab', opacity: r.is_published ? 1 : 0.55 }}
+              >
+                <div style={{ position: 'relative', borderRadius: 6, overflow: 'hidden', marginBottom: 8, aspectRatio: '9/16', background: '#00000022' }}>
+                  <img src={r.image_url} alt={r.caption || ''} style={{ width: '100%', height: '100%', objectFit: 'cover' }} draggable={false} />
+                  <button
+                    onClick={() => handleDelete(r)}
+                    style={{
+                      position: 'absolute', top: 4, right: 4, width: 20, height: 20, borderRadius: '50%',
+                      background: 'rgba(0,0,0,0.6)', color: '#fff', border: 'none', fontSize: 12, cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}
+                    aria-label="Delete screenshot"
+                  >
+                    ×
+                  </button>
+                </div>
+                <input
+                  placeholder="Caption (optional)"
+                  defaultValue={r.caption || ''}
+                  onBlur={(e) => handleCaptionBlur(r, e.target.value)}
+                  style={{ ...inputStyle, fontSize: 12, padding: '6px 8px', marginBottom: 8 }}
+                />
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--paper-dim)' }}>
+                  <input type="checkbox" checked={r.is_published} onChange={() => handleTogglePublish(r)} />
+                  Published
+                </label>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+      {rows.length === 0 && <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 20 }}>No screenshots yet.</p>}
     </div>
   )
 }
@@ -495,6 +732,7 @@ export default function StaffDashboard() {
           {[
             { id: 'events', label: 'Events' },
             { id: 'testimonials', label: 'Testimonials' },
+            { id: 'screenshots', label: 'Chat Screenshots' },
           ].map((t) => (
             <button
               key={t.id}
@@ -512,6 +750,7 @@ export default function StaffDashboard() {
 
         {tab === 'events' && <EventsTab />}
         {tab === 'testimonials' && <TestimonialsTab />}
+        {tab === 'screenshots' && <ScreenshotsTab />}
       </div>
     </section>
   )
