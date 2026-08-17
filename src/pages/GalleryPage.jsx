@@ -8,9 +8,14 @@ export default function GalleryPage() {
 
   useEffect(() => {
     let active = true
-   supabase
+
+    // NOTE: academy_trainings has TWO relationships to academy_media
+    // (academy_media.training_id -> academy_trainings.id, and
+    // academy_trainings.thumbnail_media_id -> academy_media.id), so the
+    // embed must name the FK explicitly or PostgREST throws PGRST201.
+    supabase
       .from('academy_trainings')
-      .select('*, academy_media(*)')
+      .select('*, academy_media!academy_media_training_id_fkey(*)')
       .eq('status', 'past')
       .order('training_date', { ascending: false })
       .order('sort_order', { foreignTable: 'academy_media', ascending: true })
@@ -20,6 +25,7 @@ export default function GalleryPage() {
         setEvents(data || [])
         setLoading(false)
       })
+
     return () => { active = false }
   }, [])
 
@@ -31,13 +37,10 @@ export default function GalleryPage() {
           <h2>Past events.</h2>
           <p>Photos and clips from trainings we've actually run — proof this is active, not aspirational.</p>
         </div>
-
         {loading && <p style={{ color: 'var(--muted)' }}>Loading…</p>}
-
         {!loading && events.length === 0 && (
           <p style={{ color: 'var(--muted)' }}>Nothing posted yet — check back soon.</p>
         )}
-
         {events.map((event) => (
           <div key={event.id} style={{ marginBottom: 56 }}>
             <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 22, marginBottom: 6 }}>{event.title}</h3>
