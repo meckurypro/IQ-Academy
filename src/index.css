@@ -351,6 +351,24 @@ section { padding: 76px 0; position: relative; z-index: 2; }
 .testimonial-dot { width: 8px; height: 8px; border-radius: 50%; border: none; background: var(--line-strong); transition: all 0.25s; }
 .testimonial-dot.is-active { background: var(--gold); width: 24px; border-radius: 4px; }
 
+/* ---------- Reviews (swipeable, /reviews submissions) ---------- */
+.reviews-track {
+  display: flex; gap: 16px; overflow-x: auto; scroll-snap-type: x proximity;
+  padding-bottom: 8px; -ms-overflow-style: none; scrollbar-width: none;
+}
+.reviews-track::-webkit-scrollbar { display: none; }
+.review-card {
+  scroll-snap-align: start; flex: 0 0 auto; width: 280px; max-width: 82vw;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 20px;
+}
+.review-quote { font-family: var(--font-serif); font-style: italic; font-size: 15px; line-height: 1.6; color: var(--text); margin-bottom: 14px; }
+.review-meta-name { font-size: 13px; font-weight: 600; color: var(--paper); }
+.review-meta-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.review-badge {
+  display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+  padding: 3px 8px; border-radius: 20px; background: rgba(205, 161, 94, 0.12); color: var(--gold); margin-top: 10px;
+}
+
 /* ---------- Past event highlight ---------- */
 .event-highlight {
   display: grid; grid-template-columns: 1fr 1fr; gap: 32px; align-items: center;
