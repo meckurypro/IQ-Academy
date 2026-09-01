@@ -831,6 +831,280 @@ function InquiriesTab() {
   )
 }
 
+// ── Reviews tab ─────────────────────────────────────────────
+// Public-submitted reviews (from /reviews) mixed with reviews staff
+// add on someone's behalf. Staff can always publish/unpublish any
+// review, but editing or deleting only works on reviews staff
+// themselves created (is_admin_authored) — the database enforces this
+// too (see the migration's trigger + delete policy), this UI just
+// doesn't show buttons that would fail.
+const PRIVATE_MENTORSHIP = 'PRIVATE_MENTORSHIP'
+const REVIEW_FILTERS = ['all', 'published', 'unpublished']
+
+const emptyReviewDraft = {
+  name: '', email: '', location: '', occupation: '', cohort: '', content: '', is_published: true,
+}
+
+function cohortLabel(t) {
+  return `${t.title}${t.training_date ? ` (${t.training_date})` : ''} · ${t.status}`
+}
+
+function ReviewsTab() {
+  const [rows, setRows] = useState([])
+  const [trainings, setTrainings] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [filter, setFilter] = useState('all')
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [draft, setDraft] = useState(emptyReviewDraft)
+  const [saving, setSaving] = useState(false)
+  const [addError, setAddError] = useState(null)
+
+  const load = () => {
+    setLoading(true)
+    supabase
+      .from('academy_reviews')
+      .select('*, academy_trainings(title)')
+      .order('created_at', { ascending: false })
+      .then(({ data, error }) => {
+        if (error) console.error('Failed to load reviews:', error)
+        setRows(data || [])
+        setLoading(false)
+      })
+  }
+
+  const loadTrainings = () => {
+    supabase
+      .from('academy_trainings')
+      .select('id, title, status, training_date')
+      .order('training_date', { ascending: false })
+      .then(({ data, error }) => { if (error) console.error(error); setTrainings(data || []) })
+  }
+
+  useEffect(() => { load(); loadTrainings() }, [])
+
+  const handleAddReview = async (e) => {
+    e.preventDefault()
+    if (!draft.cohort) { setAddError('Select a cohort or Private mentorship.'); return }
+    setSaving(true)
+    setAddError(null)
+
+    const payload = {
+      name: draft.name.trim(),
+      email: draft.email.trim() || null,
+      location: draft.location.trim() || null,
+      occupation: draft.occupation.trim() || null,
+      content: draft.content.trim(),
+      training_id: draft.cohort === PRIVATE_MENTORSHIP ? null : draft.cohort,
+      is_private_mentorship: draft.cohort === PRIVATE_MENTORSHIP,
+      is_published: draft.is_published,
+      is_admin_authored: true,
+    }
+    const { error } = await supabase.from('academy_reviews').insert([payload])
+    setSaving(false)
+    if (error) { setAddError('Failed to save: ' + error.message); return }
+    setDraft(emptyReviewDraft)
+    setShowAddForm(false)
+    load()
+  }
+
+  const handleTogglePublish = async (row) => {
+    const { error } = await supabase
+      .from('academy_reviews')
+      .update({ is_published: !row.is_published })
+      .eq('id', row.id)
+    if (error) { alert('Failed to update: ' + error.message); return }
+    setRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, is_published: !r.is_published } : r)))
+  }
+
+  const handleDelete = async (row) => {
+    if (!row.is_admin_authored) return // button is hidden for these rows — guard anyway
+    if (!confirm('Delete this review?')) return
+    const { error } = await supabase.from('academy_reviews').delete().eq('id', row.id)
+    if (error) { alert('Failed to delete: ' + error.message); return }
+    load()
+  }
+
+  const counts = {
+    all: rows.length,
+    published: rows.filter((r) => r.is_published).length,
+    unpublished: rows.filter((r) => !r.is_published).length,
+  }
+  const visibleRows = filter === 'all' ? rows : rows.filter((r) => (filter === 'published' ? r.is_published : !r.is_published))
+
+  return (
+    <div>
+      <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 16, maxWidth: 560 }}>
+        Reviews people submit at /reviews go live immediately — no approval step. You can unpublish
+        any review here. Reviews you add yourself can also be edited or deleted; a review someone
+        else submitted can only be unpublished, never edited or deleted.
+      </p>
+
+      <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
+        {REVIEW_FILTERS.map((f) => (
+          <button
+            key={f}
+            onClick={() => setFilter(f)}
+            style={{
+              padding: '7px 14px', borderRadius: 20, fontSize: 12, fontWeight: 600, border: '1px solid var(--panel-line)',
+              background: filter === f ? 'var(--violet)' : 'var(--panel)',
+              color: filter === f ? '#fff' : 'var(--paper-dim)',
+              cursor: 'pointer', textTransform: 'capitalize',
+            }}
+          >
+            {f} ({f === 'all' ? counts.all : counts[f]})
+          </button>
+        ))}
+      </div>
+
+      <div style={{ marginBottom: 20 }}>
+        <button className="btn-outline" onClick={() => setShowAddForm((v) => !v)}>
+          {showAddForm ? 'Cancel' : "+ Add review on someone's behalf"}
+        </button>
+      </div>
+
+      {showAddForm && (
+        <form onSubmit={handleAddReview} style={{ display: 'grid', gap: 12, marginBottom: 32, maxWidth: 520, ...cardStyle }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <Field label="Name"><input style={inputStyle} required value={draft.name} onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))} /></Field>
+            <Field label="Email (optional)"><input style={inputStyle} type="email" value={draft.email} onChange={(e) => setDraft((d) => ({ ...d, email: e.target.value }))} /></Field>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <Field label="Location"><input style={inputStyle} value={draft.location} onChange={(e) => setDraft((d) => ({ ...d, location: e.target.value }))} /></Field>
+            <Field label="Occupation"><input style={inputStyle} value={draft.occupation} onChange={(e) => setDraft((d) => ({ ...d, occupation: e.target.value }))} /></Field>
+          </div>
+          <Field label="Cohort / Private mentorship">
+            <select style={inputStyle} value={draft.cohort} onChange={(e) => setDraft((d) => ({ ...d, cohort: e.target.value }))}>
+              <option value="" disabled>Select one…</option>
+              <option value={PRIVATE_MENTORSHIP}>Private mentorship</option>
+              {trainings.map((t) => (
+                <option key={t.id} value={t.id}>{cohortLabel(t)}</option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Review"><textarea style={{ ...inputStyle, minHeight: 90 }} required value={draft.content} onChange={(e) => setDraft((d) => ({ ...d, content: e.target.value }))} /></Field>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--paper-dim)' }}>
+            <input type="checkbox" checked={draft.is_published} onChange={(e) => setDraft((d) => ({ ...d, is_published: e.target.checked }))} />
+            Published (visible on site)
+          </label>
+          {addError && <p style={{ color: '#ff8888', fontSize: 13 }}>{addError}</p>}
+          <button type="submit" className="btn-primary" disabled={saving} style={{ width: 'fit-content' }}>
+            {saving ? 'Saving…' : 'Save review'}
+          </button>
+        </form>
+      )}
+
+      {loading && <p style={{ color: 'var(--muted)', fontSize: 13 }}>Loading…</p>}
+      {!loading && visibleRows.length === 0 && <p style={{ color: 'var(--muted)', fontSize: 13 }}>Nothing here.</p>}
+
+      <div style={{ display: 'grid', gap: 10 }}>
+        {visibleRows.map((r) => (
+          <ReviewRow key={r.id} row={r} trainings={trainings} onTogglePublish={handleTogglePublish} onDelete={handleDelete} onSaved={load} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function ReviewRow({ row, trainings, onTogglePublish, onDelete, onSaved }) {
+  const [editing, setEditing] = useState(false)
+  const [form, setForm] = useState({
+    name: row.name, email: row.email || '', location: row.location || '', occupation: row.occupation || '',
+    content: row.content, cohort: row.is_private_mentorship ? PRIVATE_MENTORSHIP : (row.training_id || ''),
+  })
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(null)
+
+  const handleSave = async () => {
+    setSaving(true)
+    setError(null)
+    const payload = {
+      name: form.name.trim(),
+      email: form.email.trim() || null,
+      location: form.location.trim() || null,
+      occupation: form.occupation.trim() || null,
+      content: form.content.trim(),
+      training_id: form.cohort === PRIVATE_MENTORSHIP ? null : form.cohort,
+      is_private_mentorship: form.cohort === PRIVATE_MENTORSHIP,
+    }
+    const { error } = await supabase.from('academy_reviews').update(payload).eq('id', row.id)
+    setSaving(false)
+    if (error) { setError('Failed to save: ' + error.message); return }
+    setEditing(false)
+    onSaved()
+  }
+
+  if (editing) {
+    return (
+      <div style={cardStyle}>
+        <div style={{ display: 'grid', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <Field label="Name"><input style={inputStyle} value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} /></Field>
+            <Field label="Email"><input style={inputStyle} type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} /></Field>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <Field label="Location"><input style={inputStyle} value={form.location} onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))} /></Field>
+            <Field label="Occupation"><input style={inputStyle} value={form.occupation} onChange={(e) => setForm((f) => ({ ...f, occupation: e.target.value }))} /></Field>
+          </div>
+          <Field label="Cohort / Private mentorship">
+            <select style={inputStyle} value={form.cohort} onChange={(e) => setForm((f) => ({ ...f, cohort: e.target.value }))}>
+              <option value={PRIVATE_MENTORSHIP}>Private mentorship</option>
+              {trainings.map((t) => (
+                <option key={t.id} value={t.id}>{cohortLabel(t)}</option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Review"><textarea style={{ ...inputStyle, minHeight: 90 }} value={form.content} onChange={(e) => setForm((f) => ({ ...f, content: e.target.value }))} /></Field>
+          {error && <p style={{ color: '#ff8888', fontSize: 13 }}>{error}</p>}
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button onClick={handleSave} disabled={saving} className="btn-primary" style={{ width: 'fit-content' }}>{saving ? 'Saving…' : 'Save'}</button>
+            <button onClick={() => setEditing(false)} style={{ background: 'none', border: '1px solid var(--panel-line)', borderRadius: 8, padding: '8px 16px', color: 'var(--paper-dim)', cursor: 'pointer' }}>Cancel</button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ ...cardStyle, opacity: row.is_published ? 1 : 0.55 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+        <div style={{ flex: 1, minWidth: 220 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
+            <strong style={{ fontSize: 14 }}>{row.name}</strong>
+            <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, textTransform: 'uppercase', color: '#111', background: row.is_published ? '#7fd88f' : '#999' }}>
+              {row.is_published ? 'Published' : 'Hidden'}
+            </span>
+            {row.is_admin_authored && (
+              <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, textTransform: 'uppercase', color: '#111', background: 'var(--violet)' }}>
+                Staff-added
+              </span>
+            )}
+          </div>
+          <p style={{ fontSize: 12, color: 'var(--muted)', margin: '0 0 8px' }}>
+            {row.is_private_mentorship ? 'Private mentorship' : (row.academy_trainings?.title || 'No cohort')}
+            {(row.occupation || row.location) ? ` · ${[row.occupation, row.location].filter(Boolean).join(' · ')}` : ''}
+          </p>
+          <p style={{ fontSize: 13, color: 'var(--paper-dim)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+            {row.content}
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end', flexShrink: 0 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--paper-dim)' }}>
+            <input type="checkbox" checked={row.is_published} onChange={() => onTogglePublish(row)} />
+            Published
+          </label>
+          {row.is_admin_authored && (
+            <div style={{ display: 'flex', gap: 12 }}>
+              <button onClick={() => setEditing(true)} style={{ background: 'none', border: 'none', color: 'var(--violet-soft)', fontSize: 12, cursor: 'pointer' }}>Edit</button>
+              <button onClick={() => onDelete(row)} style={{ background: 'none', border: 'none', color: '#ff8888', fontSize: 12, cursor: 'pointer' }}>Delete</button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Dashboard shell ──────────────────────────────────────────
 export default function StaffDashboard() {
   const { profile, signOut } = useAuth()
@@ -856,6 +1130,7 @@ export default function StaffDashboard() {
           {[
             { id: 'events', label: 'Events' },
             { id: 'testimonials', label: 'Testimonials' },
+            { id: 'reviews', label: 'Reviews' },
             { id: 'screenshots', label: 'Chat Screenshots' },
             { id: 'inquiries', label: 'Inquiries' },
           ].map((t) => (
