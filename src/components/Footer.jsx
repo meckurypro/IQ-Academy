@@ -9,6 +9,7 @@ export default function Footer() {
           <Link to="/programs" style={{ color: 'var(--text-dim)', fontSize: 13, fontWeight: 600 }}>Programs</Link>
           <Link to="/trainings" style={{ color: 'var(--text-dim)', fontSize: 13, fontWeight: 600 }}>Upcoming Trainings</Link>
           <Link to="/gallery" style={{ color: 'var(--text-dim)', fontSize: 13, fontWeight: 600 }}>Past Events</Link>
+          <Link to="/reviews" style={{ color: 'var(--text-dim)', fontSize: 13, fontWeight: 600 }}>Share a Review</Link>
           <Link to="/contact" style={{ color: 'var(--text-dim)', fontSize: 13, fontWeight: 600 }}>Contact Us</Link>
           <Link to="/staff" style={{ color: 'var(--text-dim)', fontSize: 13, fontWeight: 600 }}>Staff</Link>
         </div>
