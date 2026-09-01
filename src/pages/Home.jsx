@@ -8,12 +8,21 @@ import Testimonials from '../components/Testimonials'
 import EventHighlight from '../components/EventHighlight'
 import AffiliateCTA from '../components/AffiliateCTA'
 import ChatScreenshots from '../components/ChatScreenshots'
+import ReviewsCarousel from '../components/ReviewsCarousel'
+
+// Reviews are sorted alphabetically by the first word of their content
+// (not by name or date) — this matches the same rule used on Parish25's
+// homepage, since both read the same academy_reviews table.
+function firstWord(text) {
+  return (text || '').trim().match(/^\S+/)?.[0]?.toLowerCase() || ''
+}
 
 export default function Home() {
   const [nextTraining, setNextTraining] = useState(null)
   const [testimonials, setTestimonials] = useState([])
   const [recentEvent, setRecentEvent] = useState(null)
   const [chatScreenshots, setChatScreenshots] = useState([])
+  const [reviews, setReviews] = useState([])
 
   useEffect(() => {
     let active = true
@@ -84,6 +93,18 @@ export default function Home() {
         if (error) { console.error('Failed to load chat screenshots:', error); return }
         setChatScreenshots(data || [])
       })
+    // training_id -> academy_trainings has only one relationship from
+    // academy_reviews, so no explicit FK name is needed for the embed.
+    supabase
+      .from('academy_reviews')
+      .select('id, name, occupation, location, content, is_private_mentorship, academy_trainings(title)')
+      .eq('is_published', true)
+      .then(({ data, error }) => {
+        if (!active) return
+        if (error) { console.error('Failed to load reviews:', error); return }
+        const sorted = [...(data || [])].sort((a, b) => firstWord(a.content).localeCompare(firstWord(b.content)))
+        setReviews(sorted)
+      })
     return () => { active = false }
   }, [])
 
@@ -96,6 +117,7 @@ export default function Home() {
       <ChatScreenshots screenshots={chatScreenshots} />
       {recentEvent?.image && <EventHighlight event={recentEvent} />}
       <AffiliateCTA />
+      <ReviewsCarousel reviews={reviews} />
     </>
   )
 }
