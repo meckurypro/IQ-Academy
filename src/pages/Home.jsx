@@ -4,7 +4,6 @@ import { supabase } from '../lib/supabase'
 import Hero from '../components/Hero'
 import Programs from '../components/Programs'
 import NextTrainingTeaser from '../components/NextTrainingTeaser'
-import Testimonials from '../components/Testimonials'
 import EventHighlight from '../components/EventHighlight'
 import AffiliateCTA from '../components/AffiliateCTA'
 import ChatScreenshots from '../components/ChatScreenshots'
@@ -12,14 +11,16 @@ import ReviewsCarousel from '../components/ReviewsCarousel'
 
 // Reviews are sorted alphabetically by the first word of their content
 // (not by name or date) — this matches the same rule used on Parish25's
-// homepage, since both read the same academy_reviews table.
+// homepage, since both read the same academy_testimonials table (the
+// old admin-only "Testimonials" section and the newer public-submission
+// "Reviews" feature were merged into this one table — see
+// merge_reviews_into_testimonials.sql).
 function firstWord(text) {
   return (text || '').trim().match(/^\S+/)?.[0]?.toLowerCase() || ''
 }
 
 export default function Home() {
   const [nextTraining, setNextTraining] = useState(null)
-  const [testimonials, setTestimonials] = useState([])
   const [recentEvent, setRecentEvent] = useState(null)
   const [chatScreenshots, setChatScreenshots] = useState([])
   const [reviews, setReviews] = useState([])
@@ -44,18 +45,6 @@ export default function Home() {
             location: data[0].location || 'Location TBA',
           })
         }
-      })
-    supabase
-      .from('academy_testimonials')
-      .select('*')
-      .eq('is_published', true)
-      .order('sort_order', { ascending: true })
-      .then(({ data, error }) => {
-        if (!active) return
-        if (error) { console.error('Failed to load testimonials:', error); return }
-        setTestimonials(
-          (data || []).map((t) => ({ id: t.id, quote: t.quote, name: t.name, context: t.context }))
-        )
       })
     // NOTE: academy_trainings has TWO relationships to academy_media
     // (academy_media.training_id -> academy_trainings.id, and
@@ -94,9 +83,9 @@ export default function Home() {
         setChatScreenshots(data || [])
       })
     // training_id -> academy_trainings has only one relationship from
-    // academy_reviews, so no explicit FK name is needed for the embed.
+    // academy_testimonials, so no explicit FK name is needed for the embed.
     supabase
-      .from('academy_reviews')
+      .from('academy_testimonials')
       .select('id, name, occupation, location, content, is_private_mentorship, academy_trainings(title)')
       .eq('is_published', true)
       .then(({ data, error }) => {
@@ -113,7 +102,6 @@ export default function Home() {
       <Hero />
       <Programs />
       {nextTraining && <NextTrainingTeaser training={nextTraining} />}
-      <Testimonials testimonials={testimonials} />
       <ChatScreenshots screenshots={chatScreenshots} />
       {recentEvent?.image && <EventHighlight event={recentEvent} />}
       <AffiliateCTA />
