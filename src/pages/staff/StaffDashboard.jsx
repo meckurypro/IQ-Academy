@@ -419,115 +419,6 @@ function EventsTab() {
   )
 }
 
-// ── Testimonials tab ────────────────────────────────────────
-// Testimonials can optionally be linked to a cohort/training via a
-// dropdown of existing trainings (past or upcoming). Picking one
-// auto-fills the "context" field with the training's title, but the
-// staff member can still edit context freely afterward.
-function TestimonialsTab() {
-  const [rows, setRows] = useState([])
-  const [trainings, setTrainings] = useState([])
-  const [form, setForm] = useState({ name: '', context: '', quote: '', is_published: true, training_id: '' })
-  const [saving, setSaving] = useState(false)
-
-  const load = () => {
-    supabase
-      .from('academy_testimonials')
-      .select('*, academy_trainings(title)')
-      .order('created_at', { ascending: false })
-      .then(({ data, error }) => { if (error) console.error(error); setRows(data || []) })
-  }
-
-  const loadTrainings = () => {
-    supabase
-      .from('academy_trainings')
-      .select('id, title, status, training_date')
-      .order('training_date', { ascending: false })
-      .then(({ data, error }) => { if (error) console.error(error); setTrainings(data || []) })
-  }
-
-  useEffect(() => { load(); loadTrainings() }, [])
-
-  const handleCohortChange = (trainingId) => {
-    const picked = trainings.find((t) => t.id === trainingId)
-    setForm((p) => ({
-      ...p,
-      training_id: trainingId,
-      // only auto-fill context if it's empty or was previously auto-filled
-      // from a cohort pick — don't clobber something the staff typed by hand
-      context: picked ? picked.title : p.context,
-    }))
-  }
-
-  const handleCreate = async (e) => {
-    e.preventDefault()
-    setSaving(true)
-    const payload = {
-      name: form.name,
-      context: form.context || null,
-      quote: form.quote,
-      is_published: form.is_published,
-      training_id: form.training_id || null,
-    }
-    const { error } = await supabase.from('academy_testimonials').insert([payload])
-    setSaving(false)
-    if (error) { alert('Failed to save: ' + error.message); return }
-    setForm({ name: '', context: '', quote: '', is_published: true, training_id: '' })
-    load()
-  }
-
-  const handleDelete = async (id) => {
-    if (!confirm('Delete this testimonial?')) return
-    const { error } = await supabase.from('academy_testimonials').delete().eq('id', id)
-    if (error) { alert('Failed to delete: ' + error.message); return }
-    load()
-  }
-
-  return (
-    <div>
-      <form onSubmit={handleCreate} style={{ display: 'grid', gap: 12, marginBottom: 32, maxWidth: 520 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <Field label="Name"><input style={inputStyle} required value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} /></Field>
-          <Field label="Cohort (optional)">
-            <select style={inputStyle} value={form.training_id} onChange={(e) => handleCohortChange(e.target.value)}>
-              <option value="">— No cohort —</option>
-              {trainings.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.title}{t.training_date ? ` (${t.training_date})` : ''} · {t.status}
-                </option>
-              ))}
-            </select>
-          </Field>
-        </div>
-        <Field label="Context (auto-filled from cohort, editable)">
-          <input style={inputStyle} value={form.context} onChange={(e) => setForm((p) => ({ ...p, context: e.target.value }))} />
-        </Field>
-        <Field label="Quote"><textarea style={{ ...inputStyle, minHeight: 70 }} required value={form.quote} onChange={(e) => setForm((p) => ({ ...p, quote: e.target.value }))} /></Field>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--paper-dim)' }}>
-          <input type="checkbox" checked={form.is_published} onChange={(e) => setForm((p) => ({ ...p, is_published: e.target.checked }))} />
-          Published (visible on site)
-        </label>
-        <button type="submit" className="btn-primary" disabled={saving} style={{ width: 'fit-content' }}>{saving ? 'Saving…' : 'Add testimonial'}</button>
-      </form>
-
-      <div style={{ display: 'grid', gap: 8 }}>
-        {rows.map((r) => (
-          <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px', background: 'var(--panel)', border: '1px solid var(--panel-line)', borderRadius: 8 }}>
-            <div>
-              <strong style={{ fontSize: 14 }}>{r.name}</strong>
-              <p style={{ fontSize: 12, color: 'var(--muted)', margin: '2px 0 0' }}>
-                {r.is_published ? 'Published' : 'Hidden'}
-                {r.academy_trainings?.title ? ` · ${r.academy_trainings.title}` : ''} · {r.quote.slice(0, 60)}{r.quote.length > 60 ? '…' : ''}
-              </p>
-            </div>
-            <button onClick={() => handleDelete(r.id)} style={{ background: 'none', border: 'none', color: '#ff8888', fontSize: 13, cursor: 'pointer' }}>Delete</button>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
 // ── Chat Screenshots tab ─────────────────────────────────────
 // WhatsApp screenshots stored in the existing academy-media bucket
 // under a chat-feedback/ folder. Simpler than the Events media
@@ -832,12 +723,15 @@ function InquiriesTab() {
 }
 
 // ── Reviews tab ─────────────────────────────────────────────
-// Public-submitted reviews (from /reviews) mixed with reviews staff
-// add on someone's behalf. Staff can always publish/unpublish any
-// review, but editing or deleting only works on reviews staff
-// themselves created (is_admin_authored) — the database enforces this
-// too (see the migration's trigger + delete policy), this UI just
-// doesn't show buttons that would fail.
+// Manages academy_testimonials — this table now covers both what
+// used to be the separate, staff-only "Testimonials" feature (any
+// row here can be General/no cohort, matching that old behavior) and
+// public-submitted reviews from /reviews. Staff can always
+// publish/unpublish any row, but editing or deleting only works on
+// rows staff themselves created (is_admin_authored) — the database
+// enforces this too (see merge_reviews_into_testimonials.sql's
+// trigger + delete policy), this UI just doesn't show buttons that
+// would fail.
 const PRIVATE_MENTORSHIP = 'PRIVATE_MENTORSHIP'
 const REVIEW_FILTERS = ['all', 'published', 'unpublished']
 
@@ -862,7 +756,7 @@ function ReviewsTab() {
   const load = () => {
     setLoading(true)
     supabase
-      .from('academy_reviews')
+      .from('academy_testimonials')
       .select('*, academy_trainings(title)')
       .order('created_at', { ascending: false })
       .then(({ data, error }) => {
@@ -884,7 +778,9 @@ function ReviewsTab() {
 
   const handleAddReview = async (e) => {
     e.preventDefault()
-    if (!draft.cohort) { setAddError('Select a cohort or Private mentorship.'); return }
+    // Unlike the public /reviews form, staff can leave this as
+    // "General" — the old Testimonials feature allowed quotes with no
+    // cohort tag, and that's preserved here.
     setSaving(true)
     setAddError(null)
 
@@ -894,12 +790,12 @@ function ReviewsTab() {
       location: draft.location.trim() || null,
       occupation: draft.occupation.trim() || null,
       content: draft.content.trim(),
-      training_id: draft.cohort === PRIVATE_MENTORSHIP ? null : draft.cohort,
+      training_id: draft.cohort === PRIVATE_MENTORSHIP || !draft.cohort ? null : draft.cohort,
       is_private_mentorship: draft.cohort === PRIVATE_MENTORSHIP,
       is_published: draft.is_published,
       is_admin_authored: true,
     }
-    const { error } = await supabase.from('academy_reviews').insert([payload])
+    const { error } = await supabase.from('academy_testimonials').insert([payload])
     setSaving(false)
     if (error) { setAddError('Failed to save: ' + error.message); return }
     setDraft(emptyReviewDraft)
@@ -909,7 +805,7 @@ function ReviewsTab() {
 
   const handleTogglePublish = async (row) => {
     const { error } = await supabase
-      .from('academy_reviews')
+      .from('academy_testimonials')
       .update({ is_published: !row.is_published })
       .eq('id', row.id)
     if (error) { alert('Failed to update: ' + error.message); return }
@@ -919,7 +815,7 @@ function ReviewsTab() {
   const handleDelete = async (row) => {
     if (!row.is_admin_authored) return // button is hidden for these rows — guard anyway
     if (!confirm('Delete this review?')) return
-    const { error } = await supabase.from('academy_reviews').delete().eq('id', row.id)
+    const { error } = await supabase.from('academy_testimonials').delete().eq('id', row.id)
     if (error) { alert('Failed to delete: ' + error.message); return }
     load()
   }
@@ -934,9 +830,10 @@ function ReviewsTab() {
   return (
     <div>
       <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 16, maxWidth: 560 }}>
-        Reviews people submit at /reviews go live immediately — no approval step. You can unpublish
-        any review here. Reviews you add yourself can also be edited or deleted; a review someone
-        else submitted can only be unpublished, never edited or deleted.
+        This replaces the old separate Testimonials tab — one table now. Reviews people submit at
+        /reviews go live immediately — no approval step. You can unpublish any row here. Rows you
+        add yourself can also be edited or deleted; one someone else submitted can only be
+        unpublished, never edited or deleted.
       </p>
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
@@ -974,7 +871,7 @@ function ReviewsTab() {
           </div>
           <Field label="Cohort / Private mentorship">
             <select style={inputStyle} value={draft.cohort} onChange={(e) => setDraft((d) => ({ ...d, cohort: e.target.value }))}>
-              <option value="" disabled>Select one…</option>
+              <option value="">General (no cohort)</option>
               <option value={PRIVATE_MENTORSHIP}>Private mentorship</option>
               {trainings.map((t) => (
                 <option key={t.id} value={t.id}>{cohortLabel(t)}</option>
@@ -1023,10 +920,10 @@ function ReviewRow({ row, trainings, onTogglePublish, onDelete, onSaved }) {
       location: form.location.trim() || null,
       occupation: form.occupation.trim() || null,
       content: form.content.trim(),
-      training_id: form.cohort === PRIVATE_MENTORSHIP ? null : form.cohort,
+      training_id: form.cohort === PRIVATE_MENTORSHIP || !form.cohort ? null : form.cohort,
       is_private_mentorship: form.cohort === PRIVATE_MENTORSHIP,
     }
-    const { error } = await supabase.from('academy_reviews').update(payload).eq('id', row.id)
+    const { error } = await supabase.from('academy_testimonials').update(payload).eq('id', row.id)
     setSaving(false)
     if (error) { setError('Failed to save: ' + error.message); return }
     setEditing(false)
@@ -1047,6 +944,7 @@ function ReviewRow({ row, trainings, onTogglePublish, onDelete, onSaved }) {
           </div>
           <Field label="Cohort / Private mentorship">
             <select style={inputStyle} value={form.cohort} onChange={(e) => setForm((f) => ({ ...f, cohort: e.target.value }))}>
+              <option value="">General (no cohort)</option>
               <option value={PRIVATE_MENTORSHIP}>Private mentorship</option>
               {trainings.map((t) => (
                 <option key={t.id} value={t.id}>{cohortLabel(t)}</option>
@@ -1129,7 +1027,6 @@ export default function StaffDashboard() {
         <div style={{ display: 'flex', gap: 8, marginBottom: 28, flexWrap: 'wrap' }}>
           {[
             { id: 'events', label: 'Events' },
-            { id: 'testimonials', label: 'Testimonials' },
             { id: 'reviews', label: 'Reviews' },
             { id: 'screenshots', label: 'Chat Screenshots' },
             { id: 'inquiries', label: 'Inquiries' },
@@ -1149,7 +1046,6 @@ export default function StaffDashboard() {
         </div>
 
         {tab === 'events' && <EventsTab />}
-        {tab === 'testimonials' && <TestimonialsTab />}
         {tab === 'reviews' && <ReviewsTab />}
         {tab === 'screenshots' && <ScreenshotsTab />}
         {tab === 'inquiries' && <InquiriesTab />}
