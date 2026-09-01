@@ -1150,6 +1150,7 @@ export default function StaffDashboard() {
 
         {tab === 'events' && <EventsTab />}
         {tab === 'testimonials' && <TestimonialsTab />}
+        {tab === 'reviews' && <ReviewsTab />}
         {tab === 'screenshots' && <ScreenshotsTab />}
         {tab === 'inquiries' && <InquiriesTab />}
       </div>
