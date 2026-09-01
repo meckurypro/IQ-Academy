@@ -1,8 +1,9 @@
 // src/pages/ReviewsPage.jsx
 // Public review submission form. Route this at /reviews.
-// Anyone can submit — it publishes immediately (see academy_reviews_migration.sql,
-// the INSERT policy forces is_published = true and is_admin_authored = false
-// for anon submissions, so there's no approval step and no way around it).
+// Anyone can submit — it publishes immediately and is flagged
+// is_admin_authored = false (see merge_reviews_into_testimonials.sql —
+// this writes to academy_testimonials, the same table the staff
+// dashboard's Reviews tab manages; academy_reviews was retired).
 
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
@@ -49,7 +50,7 @@ export default function ReviewsPage() {
 
     setSubmitting(true)
 
-    const { error: insertError } = await supabase.from('academy_reviews').insert({
+    const { error: insertError } = await supabase.from('academy_testimonials').insert({
       name: form.name.trim(),
       email: form.email.trim(),
       location: form.location.trim() || null,
@@ -57,9 +58,10 @@ export default function ReviewsPage() {
       content: form.content.trim(),
       training_id: form.cohort === PRIVATE_MENTORSHIP ? null : form.cohort,
       is_private_mentorship: form.cohort === PRIVATE_MENTORSHIP,
-      // is_published / is_admin_authored are left out entirely — column
-      // defaults handle it, and the RLS policy would override any
-      // attempt to set them differently anyway.
+      is_admin_authored: false,
+      // is_published is left out — the column default (true) plus the
+      // RLS policy (which requires is_published = true for anon
+      // inserts) means this is always auto-published.
     })
 
     setSubmitting(false)
