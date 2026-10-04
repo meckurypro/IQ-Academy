@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import Hero from '../components/Hero'
+import PhysicalClasses from '../components/PhysicalClasses'
 import Programs from '../components/Programs'
 import NextTrainingTeaser from '../components/NextTrainingTeaser'
 import EventHighlight from '../components/EventHighlight'
@@ -100,6 +101,7 @@ export default function Home() {
   return (
     <>
       <Hero />
+      <PhysicalClasses />
       <Programs />
       {nextTraining && <NextTrainingTeaser training={nextTraining} />}
       <ChatScreenshots screenshots={chatScreenshots} />

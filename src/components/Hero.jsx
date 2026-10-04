@@ -1,5 +1,7 @@
 // src/components/Hero.jsx
+import { Link } from 'react-router-dom'
 import { LOGO_URL } from './Logo'
+import { CLASSES_URL } from '../lib/classes'
 
 // Hero-only image — decoupled from LOGO_URL so navbar/favicon stay untouched
 // when this changes.
@@ -14,14 +16,14 @@ export default function Hero() {
             AI education, built <span className="accent">around how people actually learn.</span>
           </h1>
           <p className="lede">
-            IQ Academy is PromptIQ's education arm — cohort workshops, one-on-one
-            mentorship, hands-on internships, and quick consultations. Practical
-            skills, taught by people actively building with AI, not reading
-            about it.
+            IQ Academy is PromptIQ's education arm — hands-on classes in a real
+            classroom, cohort workshops, one-on-one mentorship and internships.
+            Practical skills, taught by people actively building with AI, not
+            reading about it.
           </p>
           <div className="hero-btns">
-            <a href="/trainings" className="btn-primary">See upcoming trainings</a>
-            <a href="/programs" className="btn-outline">Explore programs</a>
+            <a href={CLASSES_URL} className="btn-primary">Find a class near you</a>
+            <Link to="/programs" className="btn-outline">Explore programs</Link>
           </div>
         </div>
         <div className="hero-visual">

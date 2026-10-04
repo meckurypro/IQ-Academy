@@ -44,8 +44,8 @@ export default function Programs() {
     <section id="programs">
       <div className="container">
         <Reveal className="section-head">
-          <span className="eyebrow">What we teach</span>
-          <h2>Four ways to learn.</h2>
+          <span className="eyebrow">Beyond the classroom</span>
+          <h2>Four more ways to learn.</h2>
           <p>
             Whether you're a community, an individual, or a brand that just
             needs one clear answer — there's a format built for it.

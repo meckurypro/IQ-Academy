@@ -6,6 +6,7 @@ import Footer from './components/Footer'
 import ProtectedStaffRoute from './components/ProtectedStaffRoute'
 
 import Home from './pages/Home'
+import ClassesPage from './pages/ClassesPage'
 import ProgramsPage from './pages/ProgramsPage'
 import TrainingsPage from './pages/TrainingsPage'
 import GalleryPage from './pages/GalleryPage'
@@ -23,6 +24,7 @@ export default function App() {
         <Navbar />
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/classes" element={<ClassesPage />} />
           <Route path="/programs" element={<ProgramsPage />} />
           <Route path="/trainings" element={<TrainingsPage />} />
           <Route path="/gallery" element={<GalleryPage />} />

@@ -4,6 +4,7 @@ import { Link, NavLink } from 'react-router-dom'
 import Logo from './Logo'
 
 const LINKS = [
+  { to: '/classes', label: 'Classes' },
   { to: '/programs', label: 'Programs' },
   { to: '/trainings', label: 'Upcoming Trainings' },
   { to: '/gallery', label: 'Past Events' },
@@ -39,7 +40,7 @@ export default function Navbar() {
         </div>
       </div>
 
-      <div className={`mobile-drawer${open ? ' is-open' : ''}`}>
+      <div className={`mobile-drawer${open ? ' is-open' : ''}`} style={open ? { maxHeight: 360 } : undefined}>
         <nav className="mobile-links" onClick={() => setOpen(false)}>
           {LINKS.map((l) => (
             <NavLink key={l.to} to={l.to}>{l.label}</NavLink>
